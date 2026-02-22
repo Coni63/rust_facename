@@ -1,0 +1,56 @@
+{
+  "firstname": {
+    "male": [
+      "Julien",
+      "Benoît",
+      "Mathieu",
+      "Nicolas",
+      "Thomas",
+      "Alexandre"
+    ],
+    "female": [
+      "Léa",
+      "Camille",
+      "Élodie",
+      "Aurélie",
+      "Clémence",
+      "Marine"
+    ]
+  },
+  "lastname": [
+    "Lefebvre",
+    "Moreau",
+    "Dumont",
+    "Gauthier",
+    "Lambert",
+    "Rousseau",
+    "Bernard",
+    "Petit"
+  ],
+  "position": [
+    "CEO & Co-fondateur",
+    "Head of IT",
+    "Directrice Commerciale",
+    "Sales Manager",
+    "Product Owner",
+    "Développeur Fullstack",
+    "Responsable RH",
+    "Customer Success Manager",
+    "Lead Data Scientist",
+    "Chef de Projet Marketing"
+  ],
+  "images": [
+    {
+      "name": "img1.jpg",
+      "sex": "female"
+    },
+    {
+      "name": "img2.jpg",
+      "sex": "male"
+    },
+    {
+      "name": "img3.jpg",
+      "sex": "male"
+    }
+  ]
+}
