@@ -49,6 +49,7 @@ impl MyGameApp {
 
             if ui.button("Start Game").clicked() {
                 self.create_dataset();
+                self.generate_questions();
                 // Change the state to trigger the next "page"
                 self.state = AppState::Learning {
                     image_index: 0,
@@ -98,23 +99,79 @@ impl MyGameApp {
     }
 
     fn show_questions(&mut self, ui: &mut egui::Ui, idx: usize) {
-        ui.vertical_centered(|ui| {
-            ui.add_space(ui.available_height() / 3.0);
-            ui.heading("LOGO");
-            ui.add_space(20.0);
+        if let Some(question) = self.questions.get(idx) {
+            let sample_index = question.sample_index;
+            let choices = question.choices.clone();
+            let correct_index = question.correct_index;
+            let total = self.questions.len();
 
-            ui.heading(String::from("Question ") + &(idx + 1).to_string());
-        });
+            if let Some(sample) = self.dataset.get(sample_index) {
+                ui.vertical_centered(|ui| {
+                    ui.add_space(10.0);
+                    ui.label(format!("Question {} / {}", idx + 1, total));
+                    ui.add_space(10.0);
+
+                    ui.image(&sample.img_path);
+
+                    ui.add_space(15.0);
+                    ui.heading("Qui est cette personne ?");
+                    ui.add_space(15.0);
+
+                    let mut answered: Option<bool> = None;
+                    let btn_size = egui::vec2(160.0, 36.0);
+                    egui::Grid::new("choices_grid")
+                        .num_columns(2)
+                        .spacing([10.0, 10.0])
+                        .show(ui, |ui| {
+                            for (i, choice) in choices.iter().enumerate() {
+                                if ui.add_sized(btn_size, egui::Button::new(egui::RichText::new(choice).size(15.0))).clicked() {
+                                    answered = Some(i == correct_index);
+                                }
+                                if i % 2 == 1 {
+                                    ui.end_row();
+                                }
+                            }
+                        });
+
+                    if let Some(correct) = answered {
+                        if correct {
+                            self.score += 1;
+                        }
+                        if idx + 1 < total {
+                            self.state = AppState::Question { question_index: idx + 1 };
+                        } else {
+                            self.state = AppState::Results;
+                        }
+                    }
+                });
+            }
+        }
     }
 
     fn show_results(&mut self, ui: &mut egui::Ui) {
+        let total = self.questions.len();
+        let score = self.score;
         ui.vertical_centered(|ui| {
-            ui.add_space(ui.available_height() / 3.0);
-            ui.heading("LOGO");
+            ui.add_space(ui.available_height() / 4.0);
+            ui.heading("Résultats");
             ui.add_space(20.0);
 
-            if ui.button("Start Game").clicked() {
-                // Change the state to trigger the next "page"
+            ui.label(egui::RichText::new(format!("{} / {}", score, total)).size(48.0).strong());
+            ui.add_space(8.0);
+
+            let pct = if total > 0 { score * 100 / total } else { 0 };
+            let comment = match pct {
+                100 => "Parfait ! 🎉",
+                80..=99 => "Excellent !",
+                60..=79 => "Bien joué !",
+                40..=59 => "Pas mal…",
+                _ => "À retravailler !",
+            };
+            ui.label(egui::RichText::new(comment).size(20.0).italics());
+
+            ui.add_space(30.0);
+
+            if ui.button("Rejouer").clicked() {
                 self.state = AppState::Menu;
             }
         });
