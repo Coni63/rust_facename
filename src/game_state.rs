@@ -1,83 +1,49 @@
-use image::ImageReader;
-use rand::RngExt;
-use rand::seq::IndexedRandom;
-use rand::seq::SliceRandom;
-use serde::{Deserialize, Serialize};
-use std::fs;
-use std::io::Cursor;
+//! État de l'application et logique de génération des parties.
 
-use crate::ui;
+use rand::RngExt;
+use rand::seq::{IndexedRandom, SliceRandom};
+
+use crate::data::{GameData, Sex};
+use crate::modes::{Attr, GameSettings, Mode};
+
+/// Nombre de propositions par question (réduit s'il n'y a pas assez de matière).
+const NUM_CHOICES: usize = 4;
 
 pub enum AppState {
     Menu,
     Learning { image_index: usize, start_time: f64 },
-    Question { question_index: usize },
+    Question { question_index: usize, selected: Option<usize> },
     Results,
 }
 
-pub enum Mode {
-    FaceToName,
-    NameToFace,
-    FaceToPosition,
-    PositionToFace,
-}
-
-pub struct GameSettings {
-    pub mode: Mode,
-    pub num_pictures: usize,
-    pub num_questions: usize,
-    pub learning_time: f64, // seconds
-}
-
-impl Default for GameSettings {
-    fn default() -> Self {
-        Self {
-            mode: Mode::FaceToName,
-            num_pictures: 3,
-            num_questions: 3,
-            learning_time: 5.0, // seconds
-        }
-    }
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-pub struct GameData {
-    pub firstname: FirstNames,
-    pub lastname: Vec<String>,
-    pub position: Vec<String>,
-    pub images: Vec<ImageEntry>,
-}
-
+#[derive(Clone)]
 pub struct Sample {
     pub name: String,
+    /// Poste déjà décliné selon le genre.
     pub position: String,
+    /// Index dans `config.position` (identifie le poste quel que soit le genre).
+    pub job_id: usize,
     pub img_path: String,
     pub sex: Sex,
 }
 
+impl Sample {
+    pub fn attr(&self, attr: Attr) -> &str {
+        match attr {
+            Attr::Face => &self.img_path,
+            Attr::Name => &self.name,
+            Attr::Job => &self.position,
+        }
+    }
+}
+
 pub struct QuizQuestion {
     pub sample_index: usize,
+    /// Jeu pur de cette question (en mode Mix, varie d'une question à l'autre).
+    pub mode: Mode,
+    /// Texte (nom / poste) ou chemin d'image selon `mode.answer()`.
     pub choices: Vec<String>,
     pub correct_index: usize,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-pub struct FirstNames {
-    pub male: Vec<String>,
-    pub female: Vec<String>,
-}
-
-#[derive(Debug, Serialize, Deserialize, PartialEq)]
-#[serde(rename_all = "lowercase")] // Permet de lire "male" ou "female" en minuscules
-pub enum Sex {
-    Male,
-    Female,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-pub struct ImageEntry {
-    pub name: String,
-    pub sex: Sex,
 }
 
 pub struct MyGameApp {
@@ -91,22 +57,10 @@ pub struct MyGameApp {
 
 impl Default for MyGameApp {
     fn default() -> Self {
-        let file_path = "assets/config.json";
-
-        // 2. Lire le contenu du fichier dans une String
-        let data = fs::read_to_string(file_path)
-            .expect("Impossible de lire le fichier. Vérifie qu'il existe !");
-
-        // 3. Désérialiser le JSON vers la structure TeamData
-        let team: GameData =
-            serde_json::from_str(&data).expect("Erreur de désérialisation du JSON");
-
-        println!("Données chargées : {:?}", team);
-
         Self {
             state: AppState::Menu,
             settings: GameSettings::default(),
-            data: team,
+            data: GameData::load(),
             dataset: Vec::new(),
             questions: Vec::new(),
             score: 0,
@@ -115,91 +69,233 @@ impl Default for MyGameApp {
 }
 
 impl MyGameApp {
-    pub fn create_dataset(&mut self) {
+    /// Nombre de profils réellement jouables (limité par les visages et postes disponibles).
+    pub fn num_profiles(&self) -> usize {
+        self.settings
+            .difficulty
+            .profiles()
+            .min(self.data.faces.len())
+            .min(self.data.config.position.len())
+    }
+
+    /// Prépare une partie complète (profils + questions).
+    pub fn start_game(&mut self) {
+        self.create_dataset();
+        self.generate_questions();
+    }
+
+    /// Tire N profils : visages, noms complets et postes tous distincts.
+    fn create_dataset(&mut self) {
+        let mut rng = rand::rng();
+        let n = self.num_profiles();
         self.dataset.clear();
         self.questions.clear();
         self.score = 0;
-        let mut rng = rand::rng();
 
-        // On mélange et on prend le nombre nécessaire directement
-        self.data.images.shuffle(&mut rng);
-        let picked_entries = self.data.images.iter().take(self.settings.num_pictures);
+        let mut faces: Vec<_> = self.data.faces.iter().collect();
+        faces.shuffle(&mut rng);
+        let mut job_ids: Vec<usize> = (0..self.data.config.position.len()).collect();
+        job_ids.shuffle(&mut rng);
 
-        for entry in picked_entries {
-            // 1. Charger l'image
-            let path = format!("file://assets/img/{}", entry.name);
-
-            // 2. Sélectionner la liste de prénoms selon le genre
-            let name_pool = match entry.sex {
-                Sex::Male => &self.data.firstname.male,
-                Sex::Female => &self.data.firstname.female,
-            };
-
-            // 3. Tirage aléatoire (on utilise une closure pour éviter la répétition)
-            let mut pick = |list: &Vec<String>, default: &str| {
-                list.choose(&mut rng)
-                    .cloned()
-                    .unwrap_or_else(|| default.to_string())
-            };
-
-            let firstname = pick(name_pool, "Inconnu");
-            let lastname = pick(&self.data.lastname, "Nom");
-            let position = pick(&self.data.position, "Poste");
-
-            // 4. Construction de l'échantillon
-            let sex = match entry.sex {
-                Sex::Male => Sex::Male,
-                Sex::Female => Sex::Female,
-            };
+        for (face, job_id) in faces.into_iter().zip(job_ids).take(n) {
+            let name = self
+                .unique_name(face.sex, &mut rng)
+                .unwrap_or_else(|| "Inconnu".to_string());
             self.dataset.push(Sample {
-                name: format!("{} {}", firstname, lastname),
-                position,
-                img_path: path,
-                sex,
+                name,
+                position: self.data.config.position[job_id].for_sex(face.sex).to_string(),
+                job_id,
+                img_path: face.path.clone(),
+                sex: face.sex,
             });
         }
     }
 
-    pub fn generate_questions(&mut self) {
-        let mut rng = rand::rng();
+    /// Nom complet du bon genre, absent du dataset en cours de construction.
+    fn unique_name(&self, sex: Sex, rng: &mut impl rand::Rng) -> Option<String> {
+        let firstnames = self.data.config.firstname.for_sex(sex);
+        for _ in 0..200 {
+            let name = format!(
+                "{} {}",
+                firstnames.choose(rng)?,
+                self.data.config.lastname.choose(rng)?
+            );
+            if !self.dataset.iter().any(|s| s.name == name) {
+                return Some(name);
+            }
+        }
+        None
+    }
 
-        // Shuffle the order of questions (different from learning order)
+    /// Génère K questions. Les mauvaises réponses mélangent des profils déjà vus
+    /// et des valeurs inventées (ou d'autres visages du fonds d'images).
+    /// En mode Mix, les types de questions sont répartis sur les 6 jeux purs.
+    fn generate_questions(&mut self) {
+        let mut rng = rand::rng();
+        let k = self.settings.difficulty.questions().min(self.dataset.len());
+        let want = NUM_CHOICES - 1;
+
         let mut indices: Vec<usize> = (0..self.dataset.len()).collect();
         indices.shuffle(&mut rng);
+        indices.truncate(k);
 
-        for sample_index in indices {
-            let correct_name = self.dataset[sample_index].name.clone();
-            let sex = &self.dataset[sample_index].sex;
+        let mut pure_modes = Mode::PURE;
+        pure_modes.shuffle(&mut rng);
 
-            // Pick the gender-matched firstname pool
-            let firstname_pool = match sex {
-                Sex::Male => &self.data.firstname.male,
-                Sex::Female => &self.data.firstname.female,
+        let mut questions = Vec::with_capacity(k);
+        for (q, sample_index) in indices.into_iter().enumerate() {
+            let mode = match self.settings.mode {
+                Mode::Mix => pure_modes[q % pure_modes.len()],
+                pure => pure,
             };
+            let answer = mode.answer();
+            let sample = &self.dataset[sample_index];
+            let correct = sample.attr(answer).to_string();
 
-            // Generate 3 unique distractors
-            let mut distractors: Vec<String> = Vec::new();
-            let mut attempts = 0;
-            while distractors.len() < 3 && attempts < 100 {
-                attempts += 1;
-                let first = firstname_pool.choose(&mut rng).cloned().unwrap_or_default();
-                let last = self.data.lastname.choose(&mut rng).cloned().unwrap_or_default();
-                let candidate = format!("{} {}", first, last);
-                if candidate != correct_name && !distractors.contains(&candidate) {
-                    distractors.push(candidate);
+            // Noms et visages doivent rester du même genre que la bonne réponse,
+            // sinon elle s'élimine toute seule. Les postes sont déclinés au genre
+            // de la bonne réponse, donc aucun filtre n'est nécessaire.
+            let sex_matters = answer != Attr::Job;
+
+            // Distracteurs issus des autres profils vus.
+            let mut seen: Vec<String> = self
+                .dataset
+                .iter()
+                .enumerate()
+                .filter(|&(i, other)| {
+                    i != sample_index && (!sex_matters || other.sex == sample.sex)
+                })
+                .map(|(_, other)| self.value_for(other, answer, sample.sex))
+                .collect();
+            seen.shuffle(&mut rng);
+
+            // Distracteurs inventés (ou visages hors dataset).
+            let mut invented = self.invented(answer, sample.sex, want, &mut rng);
+
+            // Moitié vus, moitié inventés ; on complète avec ce qui reste.
+            let from_seen = want.div_ceil(2).min(seen.len());
+            let mut choices: Vec<String> = seen.drain(..from_seen).collect();
+            while choices.len() < want {
+                match invented.pop().or_else(|| seen.pop()) {
+                    Some(d) => choices.push(d),
+                    None => break,
                 }
             }
 
-            // Build and shuffle choices
-            let mut choices = distractors;
-            let insert_pos = rng.random_range(0..=choices.len());
-            choices.insert(insert_pos, correct_name);
-
-            self.questions.push(QuizQuestion {
+            let correct_index = rng.random_range(0..=choices.len());
+            choices.insert(correct_index, correct);
+            questions.push(QuizQuestion {
                 sample_index,
+                mode,
                 choices,
-                correct_index: insert_pos,
+                correct_index,
             });
         }
+        self.questions = questions;
+    }
+
+    /// Valeur d'un attribut d'un autre profil, présentée comme distracteur pour
+    /// une personne de genre `target_sex` (les postes sont alors déclinés à son genre).
+    fn value_for(&self, other: &Sample, attr: Attr, target_sex: Sex) -> String {
+        match attr {
+            Attr::Job => self.data.config.position[other.job_id]
+                .for_sex(target_sex)
+                .to_string(),
+            _ => other.attr(attr).to_string(),
+        }
+    }
+
+    /// Valeurs plausibles mais n'appartenant à aucun profil présenté.
+    fn invented(
+        &self,
+        attr: Attr,
+        sex: Sex,
+        count: usize,
+        rng: &mut impl rand::Rng,
+    ) -> Vec<String> {
+        let used = |v: &str| self.dataset.iter().any(|s| s.attr(attr) == v);
+        let cfg = &self.data.config;
+
+        let mut out: Vec<String> = match attr {
+            Attr::Face => self
+                .data
+                .faces
+                .iter()
+                .filter(|f| f.sex == sex)
+                .map(|f| f.path.clone())
+                .filter(|p| !used(p))
+                .collect(),
+            Attr::Job => cfg
+                .position
+                .iter()
+                .enumerate()
+                .filter(|&(id, _)| !self.dataset.iter().any(|s| s.job_id == id))
+                .map(|(_, p)| p.for_sex(sex).to_string())
+                .collect(),
+            Attr::Name => {
+                let firstnames = cfg.firstname.for_sex(sex);
+                let mut names: Vec<String> = Vec::new();
+                for _ in 0..200 {
+                    if names.len() >= count {
+                        break;
+                    }
+                    let (Some(f), Some(l)) = (firstnames.choose(rng), cfg.lastname.choose(rng))
+                    else {
+                        break;
+                    };
+                    let name = format!("{f} {l}");
+                    if !used(&name) && !names.contains(&name) {
+                        names.push(name);
+                    }
+                }
+                names
+            }
+        };
+        out.shuffle(rng);
+        out.truncate(count);
+        out
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::modes::Difficulty;
+
+    #[test]
+    fn questions_are_well_formed_for_every_mode_and_difficulty() {
+        let mut app = MyGameApp::default();
+        for mode in Mode::ALL {
+            for difficulty in Difficulty::ALL {
+                app.settings.mode = mode;
+                app.settings.difficulty = difficulty;
+                for _ in 0..50 {
+                    app.start_game();
+                    assert!(!app.questions.is_empty());
+                    for q in &app.questions {
+                        assert_ne!(q.mode, Mode::Mix);
+                        let sample = &app.dataset[q.sample_index];
+                        assert_eq!(q.choices[q.correct_index], sample.attr(q.mode.answer()));
+                        let mut uniq = q.choices.clone();
+                        uniq.sort();
+                        uniq.dedup();
+                        assert_eq!(uniq.len(), q.choices.len(), "doublon: {:?}", q.choices);
+                        assert!(q.choices.len() >= 2);
+                    }
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn mix_covers_several_question_types() {
+        let mut app = MyGameApp::default();
+        app.settings.mode = Mode::Mix;
+        app.settings.difficulty = Difficulty::Hard;
+        app.start_game();
+        let mut modes: Vec<_> = app.questions.iter().map(|q| q.mode).collect();
+        modes.dedup();
+        assert_eq!(app.questions.len(), 6);
+        assert!(modes.len() > 1);
     }
 }

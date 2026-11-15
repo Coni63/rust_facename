@@ -6,7 +6,31 @@
       "Mathieu",
       "Nicolas",
       "Thomas",
-      "Alexandre"
+      "Alexandre",
+      "Antoine",
+      "Baptiste",
+      "Clément",
+      "Damien",
+      "Étienne",
+      "Florian",
+      "Guillaume",
+      "Hugo",
+      "Jérémy",
+      "Kévin",
+      "Laurent",
+      "Maxime",
+      "Olivier",
+      "Pierre",
+      "Quentin",
+      "Romain",
+      "Sébastien",
+      "Théo",
+      "Vincent",
+      "Xavier",
+      "Yann",
+      "Arnaud",
+      "Cédric",
+      "Fabien"
     ],
     "female": [
       "Léa",
@@ -14,7 +38,31 @@
       "Élodie",
       "Aurélie",
       "Clémence",
-      "Marine"
+      "Marine",
+      "Alice",
+      "Béatrice",
+      "Charlotte",
+      "Delphine",
+      "Émilie",
+      "Florence",
+      "Gaëlle",
+      "Héloïse",
+      "Inès",
+      "Julie",
+      "Karine",
+      "Laura",
+      "Manon",
+      "Nathalie",
+      "Océane",
+      "Pauline",
+      "Quitterie",
+      "Sophie",
+      "Typhaine",
+      "Valérie",
+      "Zoé",
+      "Anaïs",
+      "Céline",
+      "Margaux"
     ]
   },
   "lastname": [
@@ -25,32 +73,137 @@
     "Lambert",
     "Rousseau",
     "Bernard",
-    "Petit"
+    "Petit",
+    "Martin",
+    "Durand",
+    "Leroy",
+    "Fournier",
+    "Girard",
+    "Bonnet",
+    "Dupont",
+    "Mercier",
+    "Blanc",
+    "Guérin",
+    "Muller",
+    "Henry",
+    "Roussel",
+    "Nicolas",
+    "Perrin",
+    "Morin",
+    "Mathieu",
+    "Clément",
+    "Gautier",
+    "Dumas",
+    "Fontaine",
+    "Chevalier",
+    "Robin",
+    "Masson",
+    "Sanchez",
+    "Giraud",
+    "Vidal",
+    "Lacroix",
+    "Marchand",
+    "Renard",
+    "Barbier",
+    "Brunet"
   ],
   "position": [
-    "CEO & Co-fondateur",
+    {
+      "male": "CEO & Co-fondateur",
+      "female": "CEO & Co-fondatrice"
+    },
     "Head of IT",
-    "Directrice Commerciale",
+    {
+      "male": "Directeur Commercial",
+      "female": "Directrice Commerciale"
+    },
     "Sales Manager",
     "Product Owner",
-    "Développeur Fullstack",
+    {
+      "male": "Développeur Fullstack",
+      "female": "Développeuse Fullstack"
+    },
     "Responsable RH",
     "Customer Success Manager",
     "Lead Data Scientist",
-    "Chef de Projet Marketing"
-  ],
-  "images": [
     {
-      "name": "img1.jpg",
-      "sex": "female"
+      "male": "Chef de Projet Marketing",
+      "female": "Cheffe de Projet Marketing"
     },
     {
-      "name": "img2.jpg",
-      "sex": "male"
+      "male": "Directeur Financier",
+      "female": "Directrice Financière"
+    },
+    "Comptable",
+    "Juriste d'entreprise",
+    "Designer UX/UI",
+    {
+      "male": "Ingénieur DevOps",
+      "female": "Ingénieure DevOps"
+    },
+    "Architecte Logiciel",
+    "Responsable Qualité",
+    {
+      "male": "Chargé de Communication",
+      "female": "Chargée de Communication"
     },
     {
-      "name": "img3.jpg",
-      "sex": "male"
-    }
+      "male": "Assistant de Direction",
+      "female": "Assistante de Direction"
+    },
+    "Responsable Logistique",
+    {
+      "male": "Directeur Technique",
+      "female": "Directrice Technique"
+    },
+    {
+      "male": "Analyste Financier",
+      "female": "Analyste Financière"
+    },
+    "Community Manager",
+    {
+      "male": "Chef de Produit",
+      "female": "Cheffe de Produit"
+    },
+    "Responsable Achats",
+    {
+      "male": "Ingénieur Commercial",
+      "female": "Ingénieure Commerciale"
+    },
+    "Scrum Master",
+    "Responsable Sécurité",
+    {
+      "male": "Chargé de Recrutement",
+      "female": "Chargée de Recrutement"
+    },
+    {
+      "male": "Directeur Marketing",
+      "female": "Directrice Marketing"
+    },
+    {
+      "male": "Technicien Support",
+      "female": "Technicienne Support"
+    },
+    {
+      "male": "Contrôleur de Gestion",
+      "female": "Contrôleuse de Gestion"
+    },
+    "Responsable Formation",
+    "Business Developer",
+    {
+      "male": "Testeur QA",
+      "female": "Testeuse QA"
+    },
+    "Responsable Juridique",
+    {
+      "male": "Directeur des Opérations",
+      "female": "Directrice des Opérations"
+    },
+    "Data Analyst",
+    {
+      "male": "Chef de Chantier",
+      "female": "Cheffe de Chantier"
+    },
+    "Office Manager"
   ]
 }

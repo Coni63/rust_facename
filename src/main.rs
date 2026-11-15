@@ -1,12 +1,13 @@
 use eframe::egui;
-use egui_extras;
-use game_state::{AppState, MyGameApp};
+use game_state::MyGameApp;
+mod data;
+mod modes;
 mod game_state;
 mod ui;
 
 fn main() -> eframe::Result {
     let options = eframe::NativeOptions {
-        viewport: egui::ViewportBuilder::default().with_inner_size([400.0, 300.0]),
+        viewport: egui::ViewportBuilder::default().with_inner_size([760.0, 720.0]),
         ..Default::default()
     };
     eframe::run_native(

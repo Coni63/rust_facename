@@ -20,23 +20,27 @@ cargo test             # run tests (none currently exist)
 
 ### State Machine
 
-The app flows through four states defined in `AppState` (game_state.rs):
-- `Menu` → `Learning` → `Question` → `Results`
-
-`Learning` auto-advances slides on a timer (default 5s per person). `Question` and `Results` are stubs not yet implemented.
+`AppState` (game_state.rs): `Menu` → `Learning` → `Question` → `Results`. The menu has one button per game (6 `Mode`s) plus a `Difficulty` selector. `Learning` shows N profiles (photo, name, job) on a timer; `Question` asks K <= N questions (4 choices, distractors mix already-seen profiles and invented values) with immediate feedback.
 
 ### Key files
 
-- **`src/main.rs`** — initializes eframe window (400×300) and installs image loaders via `egui_extras`
-- **`src/game_state.rs`** — all data structs (`GameData`, `Sample`, `GameSettings`, `MyGameApp`) and `create_dataset()` which randomly pairs images with names/positions from config
-- **`src/ui.rs`** — implements `eframe::App`; renders each state via `show_menu()`, `show_learning()`, `show_questions()`, `show_results()`
+- **`src/main.rs`** — eframe window and image loaders (`egui_extras`)
+- **`src/modes.rs`** — `Attr` (Face/Name/Job), `Mode` (cue → answer), `Difficulty` (N, K, learning time), `GameSettings`
+- **`src/data.rs`** — `GameData::load()`: `Config` from `assets/config.json` (names, last names, jobs) + `Face`s scanned from `assets/img/men/` and `assets/img/women/` (sex = folder)
+- **`src/game_state.rs`** — `AppState`, `Sample`, `QuizQuestion`, `MyGameApp` and game generation (`start_game`: dataset with unique faces/names/jobs, then questions)
+- **`src/ui.rs`** — `eframe::App` impl; `show_menu/learning/questions/results`
 
-### Data flow
+Images are loaded by egui via `file://assets/img/<men|women>/<file>` URIs. Number of profiles is capped by available faces/jobs.
 
-`assets/config.json` is loaded at startup and deserialized into `GameData`. It contains male/female name pools, last names, positions, and image metadata (filename → gender). `create_dataset()` shuffles images, picks N based on settings, then assigns random names respecting gender.
+### Data
 
-Images are loaded by egui using `file://` URIs pointing into `assets/img/`.
+Images comes from: https://uifaces.co/
+Dedup check (2026-11): SHA-256 over all images in `men/` + `women/` found no exact duplicates (44 men, 91 women). Re-run after adding scraped images: `cd assets/img && sha256sum men/* women/* | awk '{print $1}' | sort | uniq -d`. Near-duplicates (resized/re-encoded) are not detected.
 
-### Modes (defined, not yet integrated)
+### Conventions & decisions
 
-`Mode` enum defines four quiz directions: `FaceToName`, `NameToFace`, `FaceToPosition`, `PositionToFace` — only the data structures exist; no mode-specific UI or answer validation is implemented yet.
+- UI text stays in French; names, last names and jobs in `config.json` are French.
+- Names/jobs are randomly assigned per game, so a given photo gets a different identity each time.
+- Face-answer games draw distractors from the whole face pool, so choices are fewer than 4 only if there are too few images.
+- Store any further notes about the code here in CLAUDE.md (user preference).
+- Distractors for Name/Face answers are always the same sex as the correct answer (seen profiles and invented ones alike); Job distractors are not filtered (job titles in config.json are mixed masculine/feminine, e.g. "Directrice Commerciale" vs "Directeur Financier", and are assigned regardless of sex).
